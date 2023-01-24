@@ -1,0 +1,124 @@
+cabal-version:      2.4
+name:               milestones
+version:            0.1.0.0
+
+author:             gmoratorio
+
+extra-source-files: CHANGELOG.md
+
+flag defer-plugin-errors
+  description:
+      Defer errors from the plugin, useful for things like Haddock that can't handle it.
+  default: False
+  manual: True
+
+common lang
+  default-language: Haskell2010
+  default-extensions: 
+      OverloadedStrings,
+      ExplicitForAll,
+      ScopedTypeVariables,
+      DeriveGeneric,
+      StandaloneDeriving,
+      DeriveLift,
+      GeneralizedNewtypeDeriving,
+      DeriveFunctor,
+      DeriveFoldable,
+      DeriveTraversable,
+      LambdaCase,
+      MultiParamTypeClasses,
+      TypeOperators,
+      FlexibleInstances,
+      NamedFieldPuns,
+      TypeFamilies,
+      FlexibleContexts,
+      DeriveAnyClass,
+      DerivingStrategies,
+      DerivingVia,
+      DataKinds,
+      TemplateHaskell
+  build-depends:    base ^>=4.14.3.0
+  ghc-options:
+    -Wall -fobject-code -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr
+    -fno-specialise
+  if flag(defer-plugin-errors)
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+library
+    import:          lang
+    exposed-modules:  
+        Lib
+        Inspector.Mint
+        Inspector.Deploy
+        Milestones.OnChain
+
+    hs-source-dirs:  src
+
+-- Plutus dependencies
+    build-depends:
+      playground-common -any,
+      plutus-contract -any,
+      plutus-ledger -any,
+      plutus-ledger-api -any,
+      plutus-ledger-constraints -any,
+      plutus-tx -any,
+      plutus-tx-plugin -any,
+      plutus-script-utils -any,
+      cardano-api, 
+      cardano-binary,
+      data-default,
+
+-- Other dependenices
+    build-depends:
+      base >= 4.9 && < 5,
+      aeson -any,
+      bytestring -any,
+      containers -any,
+      freer-extras -any,
+      openapi3,
+      text -any,
+      lens -any,
+      serialise -any,
+      base16-bytestring,
+    hs-source-dirs: src
+
+test-suite plutus-tests
+    import: lang
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    hs-source-dirs: test
+    other-modules:
+      Spec.EmulatorSimpleType
+    build-depends:
+      plutus-tx -any,
+      plutus-tx-plugin,
+      plutus-contract -any,
+      plutus-pab -any,
+      plutus-ledger -any,
+      -- cardano-developer -any,
+      data-default,
+    build-depends:
+      base >=4.9 && <5,
+      tasty -any,
+      tasty-hunit -any,
+      text -any,
+      tasty-hedgehog >=0.2.0.0,
+      freer-extras -any,
+
+executable milestones
+    import:           lang
+    main-is:          Main.hs
+
+    -- Modules included in this executable, other than Main.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:
+        base ^>=4.14.3.0,
+        milestones
+
+    hs-source-dirs:   app
+    ghc-options:      -Wall -Werror -threaded -rtsopts -with-rtsopts=-T
+    default-language: Haskell2010
