@@ -43,7 +43,7 @@ closedName = "ClosedIncomplete"
 
 -- available utxo (with hash) of the minter wallet above
 utxo :: String
-utxo = "5df1377142536df7aadfe37059cb675c08b2c2ed874a0c6cebc5e2369ee9e919#1"
+utxo = "bdd96d5f1794bd35328169837304af290c519c6c734348db5bbd8070514316e8#0"
 
 parameters :: Mint.PermitParam
 parameters = Mint.PermitParam 

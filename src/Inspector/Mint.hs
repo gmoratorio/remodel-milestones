@@ -1,6 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-
 module Inspector.Mint where
 
 import           PlutusTx.Prelude
@@ -42,12 +41,7 @@ mkPolicy param action context =
         inspectorAddress = Ledger.pubKeyHashAddress (inspector param) Nothing
 
         sentToInspectorAddress :: Bool
-        sentToInspectorAddress = 
-                let onlyOneOutput = length outputs == 1
-                    firstOutput = head outputs
-                    sentToInspector = (LedgerContextsV2.txOutAddress firstOutput) == inspectorAddress
-
-                in onlyOneOutput && sentToInspector
+        sentToInspectorAddress = all (\txOut -> (LedgerContextsV2.txOutAddress txOut) == inspectorAddress) outputs
 
         signedByInspector :: Bool
         signedByInspector = LedgerContextsV2.txSignedBy txinfo $ Ledger.unPaymentPubKeyHash $ inspector param
