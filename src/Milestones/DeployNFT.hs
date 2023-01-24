@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Inspector.Deploy where
+module Milestones.DeployNFT where
 
 import qualified Data.ByteString.Char8              as B
 import qualified Data.ByteString.Base16             as B16
@@ -24,7 +24,7 @@ import qualified Milestones.Mint as Mint
 
 -- ByteString (string) of the pkh of the contractor's minting wallet
 contractor :: B.ByteString
-contractor = "ENTER_INSPECTOR_PKH_HERE"
+contractor = "ENTER_CONTRACTOR_PKH_HERE"
 
 -- ByteString (string) of the token name for the Milestone's thread NFT
 tokenName :: B.ByteString
