@@ -6,13 +6,16 @@ module Inspector.Deploy where
 import qualified Data.ByteString.Char8              as B
 import qualified Data.ByteString.Base16             as B16
 import qualified Data.ByteString.Lazy               as LBS
+import qualified Data.ByteString.Short              as SBS
 import qualified Data.String                        as DataString (IsString(fromString))
 import qualified Data.Aeson                         as DataAeson
+import           Codec.Serialise (serialise)
 
 import qualified Ledger                             as Ledger
 import qualified Plutus.V2.Ledger.Api               as LedgerApiV2
 import qualified PlutusTx.Prelude                   as PlutusPrelude
 import           Cardano.Api
+import           Cardano.Api.Shelley (PlutusScript (..))
 import qualified PlutusTx
 import qualified Plutus.V1.Ledger.Scripts           as ScriptsLedger
 
@@ -87,6 +90,9 @@ main = do
     writeRedeemerDrywall
     writeRedeemerFinal
     writeRedeemerClosed
+    _ <- writeMint
+
+    return ()
 
 
 dataToScriptData :: LedgerApiV2.Data -> ScriptData
@@ -98,6 +104,9 @@ dataToScriptData (LedgerApiV2.B bs)         = ScriptDataBytes bs
 
 writeJSON :: PlutusTx.ToData a => FilePath -> a -> IO ()
 writeJSON file = LBS.writeFile file . DataAeson.encode . scriptDataToJson ScriptDataJsonDetailedSchema . dataToScriptData . PlutusTx.toData
+
+writeValidator :: FilePath -> LedgerApiV2.MintingPolicy -> IO (Either (FileError ()) ())
+writeValidator file = writeFileTextEnvelope @(PlutusScript PlutusScriptV2) file Nothing . PlutusScriptSerialised . SBS.toShort . LBS.toStrict . serialise . LedgerApiV2.unMintingPolicyScript
 
 writeDatumUnit :: IO ()
 writeDatumUnit = writeJSON "src/Inspector/Deploy/unit.json" ()
@@ -133,3 +142,5 @@ writeRedeemerClosed =
     in
         writeJSON "src/Inspector/Deploy/redeemer-mint-closed.json" mintClosed
 
+writeMint :: IO (Either (FileError ()) ())
+writeMint = writeValidator "src/Inspector/Deploy/Mint.plutus" $ Mint.policy parameters
