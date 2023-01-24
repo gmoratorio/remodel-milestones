@@ -54,6 +54,7 @@ library
         Inspector.Deploy
         Milestones.OnChain
         Milestones.Mint
+        Milestones.DeployNFT
 
     hs-source-dirs:  src
 

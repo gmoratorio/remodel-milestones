@@ -54,7 +54,7 @@ mkPolicy param action context =
                 Nothing         -> (False, False)
 
         beforeDeadline :: Bool
-        beforeDeadline = (LedgerContextsV2.txInfoValidRange info) `LedgerIntervalV1.before` (deadline param)
+        beforeDeadline = (deadline param) `LedgerIntervalV1.after` (LedgerContextsV2.txInfoValidRange txinfo) 
 
         hasPolicyUtxo :: Bool
         hasPolicyUtxo = any (\txInInfo -> LedgerContextsV2.txInInfoOutRef txInInfo == utxo param) $ LedgerContextsV2.txInfoInputs txinfo
