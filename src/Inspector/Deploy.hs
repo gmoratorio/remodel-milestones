@@ -24,7 +24,7 @@ import qualified Inspector.Mint as Mint
 
 -- ByteString (string) of the pkh of the inspector's minting wallet
 inspector :: B.ByteString
-inspector = "c63688221c74de6355344c67e6204c92dca9e116a86d6945914d9d03"
+inspector = "ENTER_INSPECTOR_PKH_HERE"
 
 permitName :: B.ByteString
 permitName = "PermitIssued"
@@ -42,8 +42,10 @@ closedName :: B.ByteString
 closedName = "ClosedIncomplete"
 
 -- available utxo (with hash) of the minter wallet above
+-- this utxo will be used to make the script unique,
+-- and will be consumed by mintPermitFromScript.sh to create PermitIssued NFT
 utxo :: String
-utxo = "bdd96d5f1794bd35328169837304af290c519c6c734348db5bbd8070514316e8#0"
+utxo = "ENTER_UTXO_HERE"
 
 parameters :: Mint.PermitParam
 parameters = Mint.PermitParam 

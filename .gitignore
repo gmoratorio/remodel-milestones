@@ -27,3 +27,7 @@ result*
 scripts/wallet
 status.json
 .DS_Store
+*.idea
+tx.draft
+tx.signed
+walletBalances.txt
