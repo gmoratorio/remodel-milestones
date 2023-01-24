@@ -31,3 +31,4 @@ status.json
 tx.draft
 tx.signed
 walletBalances.txt
+Mint.plutus

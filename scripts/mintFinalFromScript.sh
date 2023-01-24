@@ -6,4 +6,4 @@ set -o pipefail
 # uncomment below for script entry debugging
 # set -x
 
-./mintNFT.sh "FinalPassed" redeemer-mint-final.json
+./mintInspectorNFT.sh "FinalPassed" redeemer-mint-final.json

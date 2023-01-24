@@ -6,4 +6,4 @@ set -o pipefail
 # uncomment below for script entry debugging
 # set -x
 
-./mintNFT.sh "ClosedIncomplete" redeemer-mint-closed.json
+./mintInspectorNFT.sh "ClosedIncomplete" redeemer-mint-closed.json
