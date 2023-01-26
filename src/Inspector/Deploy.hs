@@ -61,12 +61,20 @@ parameters = Mint.PermitParam
 
 convertToUtxo :: String -> LedgerApiV2.TxOutRef
 convertToUtxo s = 
-    let (x, _ : y) = span (/= '#') s
-    in
-        LedgerApiV2.TxOutRef
+
+    case span (/= '#') s of 
+        (x, _ : y) -> 
+            LedgerApiV2.TxOutRef
             {
                 LedgerApiV2.txOutRefId = DataString.fromString x,
                 LedgerApiV2.txOutRefIdx = read y
+            }
+        -- this case should never happen. Only added to quiet non-exhaustive patterns error
+        (_,_) ->
+            LedgerApiV2.TxOutRef
+            {
+                LedgerApiV2.txOutRefId = DataString.fromString "",
+                LedgerApiV2.txOutRefIdx = 0
             }
 
 convertToTokenName :: B.ByteString -> LedgerApiV2.TokenName
