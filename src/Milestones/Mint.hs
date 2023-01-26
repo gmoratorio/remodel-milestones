@@ -25,7 +25,7 @@ PlutusTx.makeLift ''MilestoneMintParam
 
 {-# INLINABLE mkPolicy #-}
 mkPolicy :: MilestoneMintParam -> () -> LedgerContextsV2.ScriptContext -> Bool
-mkPolicy param action context =
+mkPolicy param _ context =
     let 
         txinfo :: LedgerContextsV2.TxInfo
         txinfo = LedgerContextsV2.scriptContextTxInfo context
