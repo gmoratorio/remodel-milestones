@@ -67,7 +67,7 @@ $CARDANO_CLI transaction build \
 --cardano-mode \
 --testnet-magic $TESTNET_MAGIC \
 --tx-in ${COLLATERAL_TX} \
---tx-out ${TO_WALLET_ADDRESS}+${DEFAULT_ADA_COLLATERAL}+"$TOKEN_QUANTITY ${POLICY_ID}.${TOKEN_NAME_HEX}" \
+--tx-out ${TO_WALLET_ADDRESS}+${DEFAULT_NFT_MIN_UTXO}+"$TOKEN_QUANTITY ${POLICY_ID}.${TOKEN_NAME_HEX}" \
 --change-address ${CHANGE_ADDRESS} \
 --mint "$TOKEN_QUANTITY ${POLICY_ID}.${TOKEN_NAME_HEX}" \
 --mint-script-file ${SCRIPT_FILE} \

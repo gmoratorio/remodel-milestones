@@ -7,7 +7,8 @@ set -o pipefail
 export PATH_TO_INSPECTOR_DEPLOY=../src/Inspector/Deploy
 export PATH_TO_MILESTONE_DEPLOY=../src/Milestones/Deploy
 export PATH_TO_TRANSACTIONS=../transactions
-export DEFAULT_ADA_COLLATERAL=2000000
+export DEFAULT_NFT_MIN_UTXO=2000000
+export DEFAULT_ADA_COLLATERAL=5000000
 export NFT_QUANTITY_ONE=1
 
 export CARDANO_CLI=cardano-cli
