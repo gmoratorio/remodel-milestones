@@ -27,11 +27,6 @@ contractor = "ENTER_CONTRACTOR_PKH_HERE"
 tokenName :: B.ByteString
 tokenName = "ENTER_TOKEN_NAME_HERE"
 
--- Deadline (Integer in POSIXTime) after which the NFT contract will lock
--- https://www.epochconverter.com/
-deadline :: LedgerApiV2.POSIXTime
-deadline = 1674595130000 -- Enter updated deadline here
-
 -- available utxo (with hash) of the minter wallet above
 -- this utxo will be used to make the script unique,
 -- and will be consumed by mintMilestonesNFT.sh to create a thread NFT
@@ -43,7 +38,6 @@ parameters = Mint.MilestoneMintParam
         { Mint.utxo         = convertToUtxo utxo
         , Mint.tokenName    = convertToTokenName tokenName
         , Mint.contractor   = convertToPubKeyHash contractor
-        , Mint.deadline     = deadline
         }
            
 
