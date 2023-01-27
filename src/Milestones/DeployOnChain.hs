@@ -4,7 +4,6 @@ import qualified Data.ByteString.Char8              as B
 import qualified Data.ByteString.Base16             as B16
 import qualified Data.ByteString.Lazy               as LBS
 import qualified Data.ByteString.Short              as SBS
-import qualified Data.String                        as DataString (IsString(fromString))
 import qualified Data.Aeson                         as DataAeson
 import           Codec.Serialise (serialise)
 
@@ -14,7 +13,6 @@ import qualified PlutusTx.Prelude                   as PlutusPrelude
 import           Cardano.Api
 import           Cardano.Api.Shelley (PlutusScript (..))
 import qualified PlutusTx
-import qualified Plutus.V1.Ledger.Scripts           as ScriptsLedger
 
 import qualified Milestones.OnChain as OnChain
 
@@ -30,14 +28,31 @@ homeowner = "ENTER_HOMEOWNER_PKH_HERE"
 totalCost :: Integer
 totalCost = 10000000000 -- ENTER YOUR TOTAL COST HERE. 10k ADA default here
 
+-- payments below MUST add up to totalCost or validator will fail
+-- must be in lovelaces
+deposit :: Integer
+deposit = 2500000000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+secondPayment :: Integer
+secondPayment = 2500000000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+thirdPayment :: Integer
+thirdPayment = 2500000000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+finalPayment :: Integer
+finalPayment = 2500000000 -- ENTER AMOUNT HERE
+
 -- policyID for this project, created by contractor using Milestones.DeployNFT.hs
 -- should be at Milestones/Deploy/policyID after running mintMilestonesNFT.sh script
-projectPolicyId :: PlutusPrelude.BuiltinByteString
+projectPolicyId :: B.ByteString
 projectPolicyId = "MILESTONE_PROJECT_POLICY_ID_HERE"
 
 -- policyID for reference InspectorNFTs, created by inspector using Inspector.Deploy.hs
 -- should be at Inspector/Deploy/policyID after running any inspector script that calls mintInspectorNFT.sh
-inspectionPolicyId :: PlutusPrelude.BuiltinByteString
+inspectionPolicyId :: B.ByteString
 inspectionPolicyId = "INSPECTOR_REFERENCE_NFT_POLICY_ID_HERE"
 
 -- these match the InspectorNFT Names in Inspector/Deploy.hs - DO NOT CHANGE
@@ -62,6 +77,10 @@ parameters = OnChain.MilestoneParam
                 { OnChain.homeowner             = convertToPubKeyHash homeowner
                 , OnChain.contractor            = convertToPubKeyHash contractor
                 , OnChain.totalCost             = totalCost
+                , OnChain.deposit               = deposit
+                , OnChain.secondPayment         = secondPayment
+                , OnChain.thirdPayment          = thirdPayment
+                , OnChain.finalPayment          = finalPayment
                 , OnChain.projectPolicyId       = decodeHex projectPolicyId
                 , OnChain.inspectionPolicyId    = decodeHex inspectionPolicyId
                 , OnChain.permitName            = convertToTokenName permitName
