@@ -46,12 +46,6 @@ TOKEN_NAME_HEX=$(echo -n "$TOKEN_NAME" | xxd -p)
 
 REDEEMER_FILE_FULL_PATH=$PATH_TO_MILESTONE_DEPLOY/redeemer-mint.json
 
-section "Next we need to set the validity deadline (slot) for this transaction. (Note this must be _before_ the POSIXTime deadline in DeployNFT.hs"
-echo "Current slot is: "
-./currentSlot.sh $TESTNET_MAGIC
-read -p "Enter the end validity slot: " END_VALIDITY_SLOT
-
-
 section "Finally we need the name of the signing key for the Contractor and their PubKeyHash"
 echo "(note the signing key and pkh should be in the same directory as the address file provided earlier)"
 read -p "Enter Contractor's signing key that corresponds to the address provided previously (i.e. contrator.skey): " SIGNING_KEY_FILENAME
@@ -65,7 +59,6 @@ $CARDANO_CLI transaction build \
 --babbage-era \
 --cardano-mode \
 --testnet-magic $TESTNET_MAGIC \
---invalid-hereafter $END_VALIDITY_SLOT \
 --tx-in ${COLLATERAL_TX} \
 --tx-out ${TO_WALLET_ADDRESS}+${DEFAULT_NFT_MIN_UTXO}+"$TOKEN_QUANTITY ${POLICY_ID}.${TOKEN_NAME_HEX}" \
 --change-address ${CHANGE_ADDRESS} \
@@ -89,4 +82,4 @@ POLICY_ID_FILE=$PATH_TO_MILESTONE_DEPLOY/policyID
 echo $POLICY_ID > $POLICY_ID_FILE
 section "Your thread NFT has been created"
 echo "The policyID for this thread NFT is located at /Milestones/Deploy/policyID"
-echo "Use this policyID for the Milestone.OnChain deployment"
+echo "Use this policyID for the Milestones deployment in Milestones.DeployOnChain.hs"

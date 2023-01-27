@@ -17,7 +17,7 @@ getAndSetTestnetMagic
 TOKEN_NAME=$1
 REDEEMER_FILE_NAME=$2
 
-SCRIPT_FILE=$PATH_TO_DEPLOY/Mint.plutus
+SCRIPT_FILE=$PATH_TO_INSPECTOR_DEPLOY/Mint.plutus
 SCRIPT_ADDRESS=$($CARDANO_CLI address build --payment-script-file $SCRIPT_FILE --testnet-magic $TESTNET_MAGIC)
 
 POLICY_ID=$($CARDANO_CLI transaction policyid --script-file $SCRIPT_FILE)
@@ -51,7 +51,7 @@ TOKEN_QUANTITY=$NFT_QUANTITY_ONE
 
 TOKEN_NAME_HEX=$(echo -n "$TOKEN_NAME" | xxd -p)
 
-REDEEMER_FILE_FULL_PATH=$PATH_TO_DEPLOY/$REDEEMER_FILE_NAME
+REDEEMER_FILE_FULL_PATH=$PATH_TO_INSPECTOR_DEPLOY/$REDEEMER_FILE_NAME
 
 section "Finally we need the name of the signing key for the Inspector and their PubKeyHash"
 echo "(note the signing key and pkh should be in the same directory as the address file provided earlier)"
@@ -84,3 +84,9 @@ $CARDANO_CLI transaction sign \
 --out-file $PATH_TO_TRANSACTIONS/tx.signed \
 
 $CARDANO_CLI transaction submit --tx-file $PATH_TO_TRANSACTIONS/tx.signed --testnet-magic $TESTNET_MAGIC
+
+POLICY_ID_FILE=$PATH_TO_INSPECTOR_DEPLOY/policyID
+echo $POLICY_ID > $POLICY_ID_FILE
+section "Your Inspector Reference NFT has been created"
+echo "The policyID for this reference NFT is located at /Inspector/Deploy/policyID"
+echo "Use this policyID for the Milestones deployment in Milestones.DeployOnChain.hs"
