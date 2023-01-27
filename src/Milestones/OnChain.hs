@@ -192,6 +192,7 @@ milestoneValidator param dat redeem sc =
 
                 confirmedByInspector :: LedgerApiV2.TokenName -> Bool
                 confirmedByInspector = (inspectorReferenceToken ==)
+                -- confirmedByInspector = (Ada.adaToken ==) 
 
                 previousContractorAction :: RedeemContractor
                 previousContractorAction = lastContractorAction dat
@@ -257,7 +258,7 @@ milestoneValidator param dat redeem sc =
 
                         case redeem of
                             Homeowner (HomeownerAddFunds) ->
-                                traceIfTrue "Cannot add any more funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
+                                -- traceIfTrue "Cannot add any more funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
                                 traceIfTrue "Cannot add any more funds if totalCost was previously met" (totalDeposited dat >= projectCost) && 
                                 traceIfTrue "Deposit would pass project's totalCost" (totalDeposited outDatum >= totalCost param) &&
                                 traceIfFalse "No withdrawal allowed by Homeowner at this step" (Ada.isZero homeownerWithrawalAmount) &&
@@ -273,14 +274,14 @@ milestoneValidator param dat redeem sc =
 
                             Homeowner (HomeownerWithdrawFunds) ->
                                 traceIfTrue "Homeowner cannot withdraw funds if project is successfully complete" (previousContractorAction == WithdrawFinalPayment) &&
-                                traceIfFalse "Homeowner cannot withdraw more than what they're allowed" (homeownerWithrawalAmount <= allowedHomewownerWithdrawal previousContractorAction) &&
+                                -- traceIfFalse "Homeowner cannot withdraw more than what they're allowed" (homeownerWithrawalAmount <= allowedHomewownerWithdrawal previousContractorAction) &&
                                 traceIfFalse "Any funds spent must go solely to Homeowner" (totalAdaSpentFromContract == homeownerWithrawalAmount) &&
-                                traceIfFalse "Homeowner can only withdraw funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
+                                -- traceIfFalse "Homeowner can only withdraw funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
                                 traceIfFalse "totalWithdrawnHomeowner increase must match lastBalance decrease" 
                                                             (((totalWithdrawnHomeowner outDatum) - (totalWithdrawnHomeowner dat)) == ((lastBalance dat) - (lastBalance outDatum))) &&
                                 traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
-                                                (previousContractorAction == nextContractorAction) && 
+                                                -- (previousContractorAction == nextContractorAction) && 
                                                 (totalWithdrawnContractor dat) == (totalWithdrawnContractor outDatum) && 
                                                 (totalDeposited dat) == (totalDeposited outDatum)
                                                 )
@@ -299,8 +300,8 @@ milestoneValidator param dat redeem sc =
                                 traceIfFalse "lastBalance must be zero to start a new project" (lastBalance dat == 0) &&
                                 traceIfFalse "totalWithdrawnContractor must be zero to start a new project" (totalWithdrawnContractor dat == 0) &&
                                 traceIfFalse "totalWithdrawnHomeowner must be zero to start a new project" (totalWithdrawnHomeowner dat == 0) &&
-                                traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem StartProject) &&
-                                traceIfFalse "Contractor can only StartProject if confirmedByInspector" (confirmedByInspector (permitName param)) &&
+                                -- traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem StartProject) &&
+                                -- traceIfFalse "Contractor can only StartProject if confirmedByInspector" (confirmedByInspector (permitName param)) &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnContractor dat) == (totalWithdrawnContractor outDatum) && 
@@ -311,11 +312,11 @@ milestoneValidator param dat redeem sc =
                                     
                             Contractor (WithdrawPermitPayment) ->
                                 traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                                traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawPermitPayment) &&
+                                -- traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawPermitPayment) &&
                                 traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
-                                traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawPermitPayment) && 
-                                traceIfFalse "Contractor can only WithdrawPermitPayment if confirmedByInspector" (confirmedByInspector (permitName param)) &&
-                                traceIfFalse "Contractor can only WithdrawPermitPayment if previous action was StartProject" (previousContractorAction == StartProject) &&
+                                -- traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawPermitPayment) && 
+                                -- traceIfFalse "Contractor can only WithdrawPermitPayment if confirmedByInspector" (confirmedByInspector (permitName param)) &&
+                                -- traceIfFalse "Contractor can only WithdrawPermitPayment if previous action was StartProject" (previousContractorAction == StartProject) &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
@@ -324,11 +325,11 @@ milestoneValidator param dat redeem sc =
 
                             Contractor (WithdrawRoughPayment) ->
                                 traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                                traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawRoughPayment) &&
+                                -- traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawRoughPayment) &&
                                 traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
-                                traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawRoughPayment) && 
-                                traceIfFalse "Contractor can only WithdrawRoughPayment if confirmedByInspector" (confirmedByInspector (roughName param)) &&
-                                traceIfFalse "Contractor can only WithdrawRoughPayment if previous action was WithdrawPermitPayment" (previousContractorAction == WithdrawPermitPayment) &&
+                                -- traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawRoughPayment) && 
+                                -- traceIfFalse "Contractor can only WithdrawRoughPayment if confirmedByInspector" (confirmedByInspector (roughName param)) &&
+                                -- traceIfFalse "Contractor can only WithdrawRoughPayment if previous action was WithdrawPermitPayment" (previousContractorAction == WithdrawPermitPayment) &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
@@ -336,11 +337,11 @@ milestoneValidator param dat redeem sc =
 
                             Contractor (WithdrawDrywallPayment) ->
                                 traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                                traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawDrywallPayment) &&
+                                -- traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawDrywallPayment) &&
                                 traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
-                                traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawDrywallPayment) && 
-                                traceIfFalse "Contractor can only WithdrawDrywallPayment if confirmedByInspector" (confirmedByInspector (drywallName param)) &&
-                                traceIfFalse "Contractor can only WithdrawDrywallPayment if previous action was WithdrawRoughPayment" (previousContractorAction == WithdrawRoughPayment) &&
+                                -- traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawDrywallPayment) && 
+                                -- traceIfFalse "Contractor can only WithdrawDrywallPayment if confirmedByInspector" (confirmedByInspector (drywallName param)) &&
+                                -- traceIfFalse "Contractor can only WithdrawDrywallPayment if previous action was WithdrawRoughPayment" (previousContractorAction == WithdrawRoughPayment) &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
@@ -348,12 +349,19 @@ milestoneValidator param dat redeem sc =
 
                             Contractor (WithdrawFinalPayment) -> 
                                 traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                                traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawFinalPayment) &&
+                                -- traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawFinalPayment) &&
                                 traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
-                                traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawFinalPayment) && 
-                                traceIfFalse "Contractor can only WithdrawFinalPayment if confirmedByInspector" (confirmedByInspector (finalName param)) &&
-                                traceIfFalse "Contractor can only WithdrawFinalPayment if previous action was WithdrawDrywallPayment" (previousContractorAction == WithdrawDrywallPayment) &&
+                                -- traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawFinalPayment) && 
+                                -- traceIfFalse "Contractor can only WithdrawFinalPayment if confirmedByInspector" (confirmedByInspector (finalName param)) &&
+                                -- traceIfFalse "Contractor can only WithdrawFinalPayment if previous action was WithdrawDrywallPayment" (previousContractorAction == WithdrawDrywallPayment) &&
                                 traceIfFalse "Cannot modify any other part of Datum" (
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
                                                                 )
+
+milestoneCompile :: MilestoneParam -> V2UtilsTypeScripts.TypedValidator Milestone 
+milestoneCompile milestoneParam = V2UtilsTypeScripts.mkTypedValidator @Milestone 
+    ($$(PlutusTx.compile [|| milestoneValidator ||]) `PlutusTx.applyCode` PlutusTx.liftCode milestoneParam)
+    $$(PlutusTx.compile [|| wrap ||]) where 
+        wrap = UtilsTypeScripts.mkUntypedValidator 
+        -- @MilestoneDatum @MilestoneRedeem
