@@ -1,16 +1,21 @@
 module Milestones.OnChain where
 
-import qualified Prelude                            as P
-import Data.Maybe                                   (fromJust)
+import qualified Prelude                                            as P
+import Data.Maybe                                                   (fromJust)
 import PlutusTx.Prelude                   
-import qualified Ledger                             as Ledger
-import qualified Ledger.Ada                         as Ada
+import qualified Ledger                                             as Ledger
+import qualified Ledger.Ada                                         as Ada
 import qualified PlutusTx
-import qualified Plutus.V2.Ledger.Contexts          as LedgerContextsV2
-import qualified Plutus.V1.Ledger.Value             as LedgerValueV1
-import qualified Plutus.V2.Ledger.Api               as LedgerApiV2
-import qualified Plutus.V2.Ledger.Tx                as PlutusV2LedgerTx
-import qualified Plutus.V1.Ledger.Scripts           as ScriptsLedger
+import qualified Plutus.V2.Ledger.Contexts                          as LedgerContextsV2
+import qualified Plutus.V1.Ledger.Value                             as LedgerValueV1
+import qualified Plutus.V2.Ledger.Api                               as LedgerApiV2
+import qualified Plutus.V2.Ledger.Tx                                as PlutusV2LedgerTx
+import qualified Plutus.V1.Ledger.Scripts                           as ScriptsLedger
+import qualified Plutus.Script.Utils.V2.Typed.Scripts.Validators    as V2UtilsTypeScripts
+import qualified Plutus.Script.Utils.V2.Typed.Scripts.Validators    as V1UtilsTypeScripts
+import qualified Plutus.Script.Utils.Typed                          as UtilsTypeScripts
+import qualified Ledger.Typed.Scripts as Scripts
+
 
 data MilestoneParam = MilestoneParam 
                 { homeowner ::          Ledger.PaymentPubKeyHash
@@ -28,7 +33,12 @@ data MilestoneParam = MilestoneParam
 PlutusTx.unstableMakeIsData ''MilestoneParam
 PlutusTx.makeLift ''MilestoneParam      
 
-data RedeemHomeowner =  HomeownerAddFunds | HomeownerWithdrawFunds deriving (P.Eq, Eq, P.Ord)
+data RedeemHomeowner =  HomeownerAddFunds | HomeownerWithdrawFunds
+
+instance Eq RedeemHomeowner where
+    HomeownerAddFunds == HomeownerAddFunds              = True
+    HomeownerWithdrawFunds == HomeownerWithdrawFunds    = True
+    _ == _                                              = False
 
 PlutusTx.unstableMakeIsData ''RedeemHomeowner
 PlutusTx.makeLift ''RedeemHomeowner
@@ -38,12 +48,29 @@ data RedeemContractor = StartProject |
                         WithdrawRoughPayment | 
                         WithdrawDrywallPayment | 
                         WithdrawFinalPayment
-                            deriving (P.Eq, Eq, P.Ord)
+
+instance Eq RedeemContractor where
+    StartProject == StartProject                        = True
+    WithdrawPermitPayment == WithdrawPermitPayment      = True
+    WithdrawRoughPayment == WithdrawRoughPayment        = True
+    WithdrawDrywallPayment == WithdrawDrywallPayment    = True
+    WithdrawFinalPayment == WithdrawFinalPayment        = True
+    _ == _                                              = False
+
 
 PlutusTx.unstableMakeIsData ''RedeemContractor
 PlutusTx.makeLift ''RedeemContractor
 
-data MilestoneRedeem = Homeowner RedeemHomeowner | Contractor RedeemContractor deriving (P.Eq)
+data MilestoneRedeem = Homeowner RedeemHomeowner | Contractor RedeemContractor
+instance Eq MilestoneRedeem where
+    Homeowner (HomeownerAddFunds) == Homeowner (HomeownerAddFunds)              = True
+    Homeowner (HomeownerWithdrawFunds) == Homeowner (HomeownerWithdrawFunds)    = True
+    Contractor (StartProject) == Contractor (StartProject)                      = True
+    Contractor (WithdrawPermitPayment) == Contractor (WithdrawPermitPayment)    = True
+    Contractor (WithdrawRoughPayment) == Contractor (WithdrawRoughPayment)      = True
+    Contractor (WithdrawDrywallPayment) == Contractor (WithdrawDrywallPayment)  = True
+    Contractor (WithdrawFinalPayment) == Contractor (WithdrawFinalPayment)      = True
+    _ == _                                                                      = False
 
 PlutusTx.unstableMakeIsData ''MilestoneRedeem
 PlutusTx.makeLift ''MilestoneRedeem
@@ -54,10 +81,15 @@ data MilestoneDatum = MilestoneDatum
                 , lastBalance :: Integer
                 , totalWithdrawnContractor :: Integer
                 , totalWithdrawnHomeowner :: Integer
-                } deriving (P.Eq, Eq)
+                }
 
 PlutusTx.unstableMakeIsData ''MilestoneDatum
 PlutusTx.makeLift ''MilestoneDatum
+
+data Milestone 
+instance V2UtilsTypeScripts.ValidatorTypes Milestone where
+    type instance RedeemerType Milestone    = MilestoneRedeem
+    type instance DatumType Milestone       = MilestoneDatum
 
 {-# INLINABLE milestoneValidator #-}
 milestoneValidator :: MilestoneParam -> MilestoneDatum -> MilestoneRedeem -> LedgerContextsV2.ScriptContext -> Bool
@@ -325,4 +357,3 @@ milestoneValidator param dat redeem sc =
                                                                 (totalDeposited dat) == (totalDeposited outDatum) &&
                                                                 (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
                                                                 )
-            
