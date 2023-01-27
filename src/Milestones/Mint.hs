@@ -16,7 +16,6 @@ data MilestoneMintParam = MilestoneMintParam
                 { utxo ::           LedgerApiV2.TxOutRef 
                 , tokenName ::      LedgerApiV2.TokenName
                 , contractor ::     Ledger.PaymentPubKeyHash
-                , deadline ::       LedgerApiV2.POSIXTime
                 }
 
 PlutusTx.unstableMakeIsData ''MilestoneMintParam
@@ -53,16 +52,12 @@ mkPolicy param _ context =
                 Just (tn, amt)  -> (tn == tokenName, amt == 1)
                 Nothing         -> (False, False)
 
-        beforeDeadline :: Bool
-        beforeDeadline = (deadline param) `LedgerIntervalV1.after` (LedgerContextsV2.txInfoValidRange txinfo) 
-
         hasPolicyUtxo :: Bool
         hasPolicyUtxo = any (\txInInfo -> LedgerContextsV2.txInInfoOutRef txInInfo == utxo param) $ LedgerContextsV2.txInfoInputs txinfo
 
         (correctNFT, correctAmount) = correctNFTAndAmount $ tokenName param
 
     in
-        traceIfFalse "Deadline has passed" beforeDeadline &&
         traceIfFalse "Policy Utxo not provided" hasPolicyUtxo &&
         traceIfFalse "Not signed by inspector" signedByContractor &&
         traceIfFalse "Wrong token name" correctNFT &&
