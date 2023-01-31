@@ -11,8 +11,8 @@ source helpers.sh
 
 getAndSetTestnetMagic
 
-section "First we need the tokenName for the Milestones thread NFT (must match the tokenName entered in DeployNFT.hs)"
-read -p "Enter tokenName for thread NFT: " TOKEN_NAME
+section "First we need the tokenName for the Milestones AuthNFT (must match the tokenName entered in DeployNFT.hs)"
+read -p "Enter tokenName for AuthNFT: " TOKEN_NAME
 
 SCRIPT_FILE=$PATH_TO_MILESTONE_DEPLOY/Mint.plutus
 SCRIPT_ADDRESS=$($CARDANO_CLI address build --payment-script-file $SCRIPT_FILE --testnet-magic $TESTNET_MAGIC)
@@ -31,7 +31,7 @@ CONTRACTOR_ADDRESS_FULL_PATH=$PATH_TO_WALLETS/$CONTRACTOR_ADDRESS_FILENAME
 echo "Contractor's address file is at: " $CONTRACTOR_ADDRESS_FULL_PATH
 
 
-section "Now we need the UTxO used to create unique NFT PolicyID (must match UTxO used in DeployNFT.hs)"
+section "Now we need the UTxO used to create unique AuthNFT PolicyID (must match UTxO used in DeployNFT.hs)"
 echo ""
 getInputTx ${CONTRACTOR_ADDRESS_FULL_PATH}
 COLLATERAL_TX=$SELECTED_UTXO
@@ -80,6 +80,6 @@ $CARDANO_CLI transaction submit --tx-file $PATH_TO_TRANSACTIONS/tx.signed --test
 
 POLICY_ID_FILE=$PATH_TO_MILESTONE_DEPLOY/policyID
 echo $POLICY_ID > $POLICY_ID_FILE
-section "Your thread NFT has been created"
-echo "The policyID for this thread NFT is located at /Milestones/Deploy/policyID"
+section "Your AuthNFT has been created"
+echo "The policyID for this AuthNFT is located at /Milestones/Deploy/policyID"
 echo "Use this policyID for the Milestones deployment in Milestones.DeployOnChain.hs"
