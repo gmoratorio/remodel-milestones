@@ -26,6 +26,14 @@ import qualified Inspector.Mint as Mint
 inspector :: B.ByteString
 inspector = "ENTER_INSPECTOR_PKH_HERE"
 
+-- available utxo (with hash) of the minter wallet above
+-- this utxo will be used to make the script unique,
+-- and will be consumed by mintPermitFromScript.sh to create PermitIssued NFT
+utxo :: String
+utxo = "ENTER_UTXO#INDEX_HERE"
+
+-- NOTE: Token names below should not be changed
+
 permitName :: B.ByteString
 permitName = "PermitIssued"
 
@@ -40,12 +48,6 @@ finalName = "FinalPassed"
 
 closedName :: B.ByteString
 closedName = "ClosedIncomplete"
-
--- available utxo (with hash) of the minter wallet above
--- this utxo will be used to make the script unique,
--- and will be consumed by mintPermitFromScript.sh to create PermitIssued NFT
-utxo :: String
-utxo = "ENTER_UTXO_HERE"
 
 parameters :: Mint.PermitParam
 parameters = Mint.PermitParam 

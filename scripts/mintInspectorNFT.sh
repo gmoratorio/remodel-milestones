@@ -88,5 +88,8 @@ $CARDANO_CLI transaction submit --tx-file $PATH_TO_TRANSACTIONS/tx.signed --test
 POLICY_ID_FILE=$PATH_TO_INSPECTOR_DEPLOY/policyID
 echo $POLICY_ID > $POLICY_ID_FILE
 section "Your Inspector Reference NFT has been created"
+echo "The policyID for this reference NFT is " $POLICY_ID
 echo "The policyID for this reference NFT is located at /Inspector/Deploy/policyID"
 echo "Use this policyID for the Milestones deployment in Milestones.DeployOnChain.hs"
+echo ""
+echo "The TokeName (in hex) for this Inspector NFT is " $TOKEN_NAME_HEX

@@ -11,11 +11,9 @@ source helpers.sh
 
 getAndSetTestnetMagic
 
-section "This script will initialize the Milestones contract by creating & sending the StartProject UTxO datum with default values"
+section "This script will initialize the Milestones contract by creating & sending the NotStarted UTxO datum with default values"
 
-section "First we need the tokenName for the Milestones AuthNFT (must match the tokenName entered in DeployNFT.hs)"
-read -p "Enter tokenName for AuthNFT: " TOKEN_NAME
-
+section "First we need to know where all of the wallet files are stored"
 read -p "Enter full path to wallets and address files: " PATH_TO_WALLETS
 
 section "Next we need to get the information for the Contractor"
@@ -39,15 +37,12 @@ COLLATERAL_UTXO=$SELECTED_UTXO
 
 section "Finally we need the name of the signing key for the Contractor and their PubKeyHash"
 echo "(note the signing key and pkh should be in the same directory as the address file provided earlier)"
-read -p "Enter Contractor's signing key that corresponds to the address provided previously (i.e. contrator.skey): " SIGNING_KEY_FILENAME
+read -p "Enter Contractor's signing key that corresponds to the address provided previously (i.e. contractor.skey): " SIGNING_KEY_FILENAME
 read -p "Enter the Contractor's pubKeyHash filename (i.e. contractor.pkh): " SIGNER_PUB_KEY_HASH
 
 CONTRACTOR_SIGNING_KEY_FULL_PATH=$PATH_TO_WALLETS/$SIGNING_KEY_FILENAME
 CONTRACTOR_PUB_KEY_HASH_FULL_PATH=$PATH_TO_WALLETS/$SIGNER_PUB_KEY_HASH
 CONTRACTOR_PHK=$(cat $CONTRACTOR_PUB_KEY_HASH_FULL_PATH)
-
-FROM_WALLET_ADDRESS=$(cat $CONTRACTOR_ADDRESS_FULL_PATH)
-CHANGE_ADDRESS=$(cat $CONTRACTOR_ADDRESS_FULL_PATH)
 
 SCRIPT_FILE=$PATH_TO_MILESTONE_DEPLOY/Milestones.plutus
 SCRIPT_ADDRESS=$($CARDANO_CLI address build --payment-script-file $SCRIPT_FILE --testnet-magic $TESTNET_MAGIC)
@@ -55,11 +50,12 @@ echo "Script address is: " $SCRIPT_ADDRESS
 
 CHANGE_ADDRESS=$(cat $CONTRACTOR_ADDRESS_FULL_PATH)
 
-DATUM_FILE_NAME=parameterized-initial-datum.json
+DATUM_FILE_NAME=0-parameterized-initial-datum.json
 DATUM_FILE_FULL_PATH=$PATH_TO_MILESTONE_DEPLOY/$DATUM_FILE_NAME
 
 TOKEN_QUANTITY=$NFT_QUANTITY_ONE
 POLICY_ID=$(cat $PATH_TO_MILESTONE_DEPLOY/policyID)
+TOKEN_NAME=$(cat $PATH_TO_MILESTONE_DEPLOY/authTokenName)
 TOKEN_NAME_HEX=$(echo -n "$TOKEN_NAME" | xxd -p)
 
 $CARDANO_CLI transaction build \
@@ -81,3 +77,9 @@ $CARDANO_CLI transaction sign \
             --out-file $PATH_TO_TRANSACTIONS/tx.signed
 
 $CARDANO_CLI transaction submit --tx-file $PATH_TO_TRANSACTIONS/tx.signed --testnet-magic $TESTNET_MAGIC
+
+SCRIPT_ADDRESS_FILE=$PATH_TO_MILESTONE_DEPLOY/milestonesScript.addr
+echo $SCRIPT_ADDRESS > $SCRIPT_ADDRESS_FILE
+section "Your Milestones AuthNFT has been deployed to the Milestones script address on chain"
+echo "The Script Address for this validator is located at /Milestones/Deploy/milestonesScript.addr"
+echo "This milestonesScript.addr will automatically be used by all other shell scripts interacting with this validator"

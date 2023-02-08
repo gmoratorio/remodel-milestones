@@ -1,7 +1,10 @@
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RecordWildCards   #-}
+
+
 module Milestones.OnChain where
 
-import qualified Prelude                                            as P
-import Data.Maybe                                                   (fromJust)
 import PlutusTx.Prelude                   
 import qualified Ledger                                             as Ledger
 import qualified Ledger.Ada                                         as Ada
@@ -10,10 +13,8 @@ import qualified Plutus.V2.Ledger.Contexts                          as LedgerCon
 import qualified Plutus.V1.Ledger.Value                             as LedgerValueV1
 import qualified Plutus.V2.Ledger.Api                               as LedgerApiV2
 import qualified Plutus.V2.Ledger.Tx                                as PlutusV2LedgerTx
-import qualified Plutus.V1.Ledger.Scripts                           as ScriptsLedger
 import qualified Plutus.Script.Utils.V2.Typed.Scripts.Validators    as V2UtilsTypeScripts
 import qualified Plutus.Script.Utils.V2.Scripts                     as V2UtilsScripts
-import qualified Plutus.Script.Utils.V2.Typed.Scripts.Validators    as V1UtilsTypeScripts
 import qualified Plutus.Script.Utils.Typed                          as UtilsTypeScripts
 import qualified Ledger.Typed.Scripts                               as Scripts
 
@@ -48,13 +49,15 @@ instance Eq RedeemHomeowner where
 PlutusTx.unstableMakeIsData ''RedeemHomeowner
 PlutusTx.makeLift ''RedeemHomeowner
 
-data RedeemContractor = StartProject |
+data RedeemContractor = NotStarted |
+                        StartProject |
                         WithdrawPermitPayment | 
                         WithdrawRoughPayment | 
                         WithdrawDrywallPayment | 
                         WithdrawFinalPayment
 
 instance Eq RedeemContractor where
+    NotStarted == NotStarted                            = True
     StartProject == StartProject                        = True
     WithdrawPermitPayment == WithdrawPermitPayment      = True
     WithdrawRoughPayment == WithdrawRoughPayment        = True
@@ -98,51 +101,74 @@ instance V2UtilsTypeScripts.ValidatorTypes Milestone where
 
 {-# INLINABLE milestoneValidator #-}
 milestoneValidator :: MilestoneParam -> MilestoneDatum -> MilestoneRedeem -> LedgerContextsV2.ScriptContext -> Bool
-milestoneValidator param dat redeem sc =
-    let
-        projectCost :: Integer
-        projectCost = totalCost param
-    in
-        traceIfFalse "Sum of contractor payouts does not match totalCost. New contract needed." (
-        ((deposit param) + (secondPayment param) + (thirdPayment param) + (finalPayment param)) == projectCost) &&
+milestoneValidator MilestoneParam{..} MilestoneDatum{..} redeem sc =
     
+    traceIfFalse "Sum of contractor payouts does not match totalCost. New contract needed." (
+    (deposit + secondPayment + thirdPayment + finalPayment) == totalCost) &&
 
     let
         txinfo :: LedgerContextsV2.TxInfo
         txinfo = LedgerContextsV2.scriptContextTxInfo sc
 
+        -- inputs we're consuming
+        inputs :: [LedgerContextsV2.TxInInfo]
+        inputs = LedgerContextsV2.txInfoInputs txinfo
+
         -- inputs we're only referencing
         referenceInputs :: [LedgerContextsV2.TxInInfo]
         referenceInputs = LedgerContextsV2.txInfoReferenceInputs txinfo
+
+        -- all outputs being produced
+        outputs :: [LedgerContextsV2.TxOut]
+        outputs = LedgerContextsV2.txInfoOutputs txinfo
 
         -- outputs going back to the script they're spent from
         continuingOutputs :: [LedgerContextsV2.TxOut]
         continuingOutputs = LedgerContextsV2.getContinuingOutputs sc
 
-        threadPolicyId :: LedgerApiV2.CurrencySymbol
-        threadPolicyId =  LedgerApiV2.CurrencySymbol (projectPolicyId param)
+        signatures :: [LedgerApiV2.PubKeyHash]
+        signatures = LedgerContextsV2.txInfoSignatories txinfo
+
+        authPolicyId :: LedgerApiV2.CurrencySymbol
+        authPolicyId =  LedgerApiV2.CurrencySymbol projectPolicyId
 
         inspectorPolicyId :: LedgerApiV2.CurrencySymbol
-        inspectorPolicyId =  LedgerApiV2.CurrencySymbol (inspectionPolicyId param)
+        inspectorPolicyId =  LedgerApiV2.CurrencySymbol inspectionPolicyId
 
         getInputValue :: LedgerContextsV2.TxInInfo -> LedgerValueV1.Value
         getInputValue = LedgerContextsV2.txOutValue . LedgerContextsV2.txInInfoResolved
 
-        valueContainsThreadPolicy :: LedgerValueV1.Value -> Bool
-        valueContainsThreadPolicy value =
+        valueContainsAuthPolicy :: LedgerValueV1.Value -> Bool
+        valueContainsAuthPolicy value =
                 let currencies = LedgerValueV1.flattenValue $ value
-                in any(\(policyId, _, _) -> policyId == threadPolicyId) currencies
+                in any(\(policyId, _, _) -> policyId == authPolicyId) currencies
 
-        threadNFTBackToScript :: Bool
-        threadNFTBackToScript = isJust $ find (\txout -> valueContainsThreadPolicy $ LedgerContextsV2.txOutValue txout) continuingOutputs
+        valueContainsInspectorPolicy :: LedgerValueV1.Value -> Bool
+        valueContainsInspectorPolicy value =
+                let currencies = LedgerValueV1.flattenValue $ value
+                in any(\(policyId, _, _) -> policyId == inspectorPolicyId) currencies
 
-        inputHasThreadNFT :: Bool
-        inputHasThreadNFT = 
-            let maybeThreadTx = LedgerContextsV2.findOwnInput sc
+        authNFTBackToScript :: Bool
+        authNFTBackToScript = isJust $ find (\txout -> valueContainsAuthPolicy $ LedgerContextsV2.txOutValue txout) continuingOutputs
+
+        inputHasAuthNFT :: Bool
+        inputHasAuthNFT = 
+            let maybeAuthTx = LedgerContextsV2.findOwnInput sc
             in 
-                case maybeThreadTx of
-                    Just (txInInfo) -> valueContainsThreadPolicy $ getInputValue txInInfo
+                case maybeAuthTx of
+                    Just (txInInfo) -> valueContainsAuthPolicy $ getInputValue txInInfo
                     _ -> False
+
+        referenceInputIsInspectorNFT :: Bool
+        referenceInputIsInspectorNFT = 
+            let [onlyInput] = referenceInputs
+            in valueContainsInspectorPolicy $ getInputValue onlyInput
+
+        exactlyTwoInputs :: Bool
+        exactlyTwoInputs = length inputs == 2
+
+        exactlyOneSignature :: Bool
+        exactlyOneSignature = length signatures == 1
 
         exactlyOneReferenceInput :: Bool
         exactlyOneReferenceInput = length referenceInputs == 1
@@ -150,8 +176,11 @@ milestoneValidator param dat redeem sc =
         exactlyOneContinuingOutput :: Bool
         exactlyOneContinuingOutput = length continuingOutputs == 1
     in
-        traceIfFalse "All transactions must include thread NFT for authentication" inputHasThreadNFT &&
-        traceIfFalse "All transactions must send thread NFT back to script" threadNFTBackToScript &&
+        traceIfFalse "Each transaction should have exactly two inputs: the authNFT and one signer UTxO" exactlyTwoInputs &&
+        traceIfFalse "Each transaction should only have one signature, eithere from the Contractor or Homeowner" exactlyOneSignature &&
+        traceIfFalse "All transactions must include authNFT for authentication" inputHasAuthNFT &&
+        traceIfFalse "All transactions must a reference to an Inspector NFT" referenceInputIsInspectorNFT &&
+        traceIfFalse "All transactions must send authNFT back to script" authNFTBackToScript &&
         traceIfFalse "Only one reference input can be provided at a time" exactlyOneReferenceInput &&
         traceIfFalse "Only one UTxO can be sent back to the script at a time" exactlyOneContinuingOutput && 
 
@@ -163,27 +192,34 @@ milestoneValidator param dat redeem sc =
         continuingOutValue :: LedgerValueV1.Value
         continuingOutValue = LedgerContextsV2.txOutValue outputToScript
 
-        adaToScript :: Integer
-        adaToScript = LedgerValueV1.valueOf continuingOutValue LedgerApiV2.adaSymbol LedgerApiV2.adaToken
+        amountOfAdaToScript :: Integer
+        amountOfAdaToScript = LedgerValueV1.valueOf continuingOutValue LedgerApiV2.adaSymbol LedgerApiV2.adaToken
 
-        outDatum :: MilestoneDatum
-        outDatum = case PlutusV2LedgerTx.txOutDatum outputToScript of
-                        PlutusV2LedgerTx.NoOutputDatum -> traceError "No datum in outputToScript"
-                        PlutusV2LedgerTx.OutputDatumHash _ -> traceError "Datum hash, not full Datum found"
-                        PlutusV2LedgerTx.OutputDatum d -> 
-                            case PlutusTx.fromBuiltinData $ ScriptsLedger.getDatum d of
-                                Nothing -> traceError "Error converting outDatum to MilestoneDatum"
-                                Just (outDat) -> outDat
+
+        MilestoneDatum  { lastContractorAction      = nextContractorAction
+                        , totalDeposited            = nextTotalDeposited
+                        , lastBalance               = nextLastBalance
+                        , totalWithdrawnContractor  = nextTotalWithdrawnContractor
+                        , totalWithdrawnHomeowner   = nextTotalWithdrawnHomeowner 
+                        } = case PlutusV2LedgerTx.txOutDatum outputToScript of
+                                    PlutusV2LedgerTx.OutputDatum (LedgerApiV2.Datum d) -> LedgerApiV2.unsafeFromBuiltinData d
+                                    PlutusV2LedgerTx.OutputDatumHash dh -> 
+                                        case LedgerContextsV2.findDatum dh txinfo of
+                                            Just (LedgerApiV2.Datum d) -> LedgerApiV2.unsafeFromBuiltinData d
+                                            Nothing -> traceError "Could not find Datum from DatumHash"
+
+                                    PlutusV2LedgerTx.NoOutputDatum -> traceError "No datum in outputToScript"
 
         isWithdrawal :: Bool
-        isWithdrawal = adaToScript < lastBalance dat
+        isWithdrawal = amountOfAdaToScript < lastBalance
 
         isDeposit :: Bool
-        isDeposit = adaToScript > lastBalance dat
+        isDeposit = amountOfAdaToScript > lastBalance
 
         datumActionMatchesRedeem :: RedeemContractor -> Bool
-        datumActionMatchesRedeem = ((lastContractorAction outDatum) ==)
+        datumActionMatchesRedeem = (nextContractorAction ==)
 
+        -- a this point we're sure we have the right policyID, so we just need to check for specific tokenNames
         confirmedByInspector :: LedgerApiV2.TokenName -> Bool
         confirmedByInspector tn = 
             case referenceInputs of
@@ -194,167 +230,166 @@ milestoneValidator param dat redeem sc =
                             [(_, inspectorTokenName, _)]    -> tn == inspectorTokenName
                             _                               -> False
                 _                                           -> False
-                
-
-        previousContractorAction :: RedeemContractor
-        previousContractorAction = lastContractorAction dat
-
-        nextContractorAction :: RedeemContractor
-        nextContractorAction = lastContractorAction outDatum
-
-        signedByContractor :: Bool
-        signedByContractor = LedgerContextsV2.txSignedBy txinfo $ Ledger.unPaymentPubKeyHash (contractor param)
-
-        signedByHomeowner :: Bool
-        signedByHomeowner = LedgerContextsV2.txSignedBy txinfo $ Ledger.unPaymentPubKeyHash (homeowner param)
 
         intToAda :: Integer -> Ada.Ada
         intToAda = Ada.lovelaceOf
 
         scheduledPayout :: RedeemContractor -> Ada.Ada
-        scheduledPayout cr = 
-            case cr of
-                WithdrawPermitPayment   -> intToAda $ deposit param
-                WithdrawRoughPayment    -> intToAda $ secondPayment param
-                WithdrawDrywallPayment  -> intToAda $ thirdPayment param
-                WithdrawFinalPayment    -> intToAda $ finalPayment param
+        scheduledPayout lastAction = 
+            case lastAction of
+                WithdrawPermitPayment   -> intToAda $ deposit
+                WithdrawRoughPayment    -> intToAda $ secondPayment
+                WithdrawDrywallPayment  -> intToAda $ thirdPayment
+                WithdrawFinalPayment    -> intToAda $ finalPayment
                 _                       -> intToAda 0
 
-        totalDueContractor :: RedeemContractor -> Ada.Ada
-        totalDueContractor lastAction = 
-            case lastAction of
+        totalDueContractor :: Ada.Ada
+        totalDueContractor = 
+            case lastContractorAction of
                 WithdrawPermitPayment   -> scheduledPayout WithdrawPermitPayment
                 WithdrawRoughPayment    -> scheduledPayout WithdrawPermitPayment <> scheduledPayout WithdrawRoughPayment
                 WithdrawDrywallPayment  -> scheduledPayout WithdrawPermitPayment <> scheduledPayout WithdrawRoughPayment <> scheduledPayout WithdrawDrywallPayment
-                WithdrawFinalPayment    -> intToAda (totalCost param)
+                WithdrawFinalPayment    -> intToAda totalCost
                 _                       -> intToAda 0
 
-        allowedHomewownerWithdrawal :: RedeemContractor -> Ada.Ada
-        allowedHomewownerWithdrawal lastAction = 
-            let totalADADeposited           = intToAda $ totalDeposited dat
-                totalADAStillDueContractor  = (totalDueContractor lastAction) - (intToAda $ totalWithdrawnContractor dat)
-                totalADAHomeownerWithdrawn          = intToAda $ totalWithdrawnHomeowner dat
+        allowedHomewownerWithdrawal :: Ada.Ada
+        allowedHomewownerWithdrawal  = 
+            let totalADADeposited           = intToAda $ totalDeposited
+                totalADAStillDueContractor  = totalDueContractor - (intToAda $ totalWithdrawnContractor)
+                totalADAHomeownerWithdrawn  = intToAda $ totalWithdrawnHomeowner
             in
                 totalADADeposited - totalADAStillDueContractor - totalADAHomeownerWithdrawn
 
-        contractorPayoutAmount :: Ada.Ada
-        contractorPayoutAmount = Ada.fromValue $ LedgerContextsV2.valuePaidTo txinfo (Ledger.unPaymentPubKeyHash (contractor param))
+        -- at this point we're certain we only have one signature
+        -- so when we run these additional checks we know that only either the Contractor or Homeowner signed
+        signedByContractor :: Bool
+        signedByContractor = LedgerContextsV2.txSignedBy txinfo $ Ledger.unPaymentPubKeyHash contractor
 
-        homeownerWithrawalAmount :: Ada.Ada
-        homeownerWithrawalAmount = Ada.fromValue $ LedgerContextsV2.valuePaidTo txinfo (Ledger.unPaymentPubKeyHash (homeowner param))
+        signedByHomeowner :: Bool
+        signedByHomeowner = LedgerContextsV2.txSignedBy txinfo $ Ledger.unPaymentPubKeyHash homeowner
 
         totalAdaSpentFromContract :: Ada.Ada
-        totalAdaSpentFromContract = Ada.fromValue $ LedgerContextsV2.valueSpent txinfo
+        totalAdaSpentFromContract = intToAda (lastBalance - amountOfAdaToScript)
+
+        valueOnlyToStakeholderAndScript :: Ledger.PaymentPubKeyHash -> Bool
+        valueOnlyToStakeholderAndScript stakeholder = 
+                let stakeholderPkh = Ledger.unPaymentPubKeyHash stakeholder
+                    scriptVH = LedgerContextsV2.ownHash sc
+                in all  (\txOut -> 
+                            let outAddress = LedgerContextsV2.txOutAddress txOut
+                            in case Ledger.toPubKeyHash outAddress of
+                                    Just (pkh) -> pkh == stakeholderPkh
+                                    Nothing -> case Ledger.toValidatorHash outAddress of
+                                                Just (vh) -> vh == scriptVH
+                                                Nothing -> False
+                                
+                        ) outputs
+
 
     in
-        traceIfFalse "outDatum lastBalance must match adaToScript" ((lastBalance outDatum) == adaToScript) &&
+        traceIfFalse "nextLastBalance must match amountOfAdaToScript" (nextLastBalance == amountOfAdaToScript) &&
 
         case redeem of 
             Homeowner (_) ->
                 traceIfFalse "Must be signed by homeowner" signedByHomeowner &&
-                traceIfFalse "No Contractor withdrawal allowed at this step" (Ada.isZero contractorPayoutAmount) &&
+                traceIfFalse "Funds can only go to Homeowner and Milestones address at this step" (valueOnlyToStakeholderAndScript homeowner) && 
 
                 case redeem of
                     Homeowner (HomeownerAddFunds) ->
-                        traceIfTrue "Cannot add any more funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
-                        traceIfTrue "Cannot add any more funds if totalCost was previously met" (totalDeposited dat >= projectCost) && 
-                        traceIfTrue "Deposit would pass project's totalCost" (totalDeposited outDatum >= totalCost param) &&
-                        traceIfFalse "No withdrawal allowed by Homeowner at this step" (Ada.isZero homeownerWithrawalAmount) &&
-                        traceIfFalse "Contract cannot spend any funds at this step" (Ada.isZero totalAdaSpentFromContract) &&
+                        traceIfFalse "Cannot add any more funds if project is ClosedIncomplete" (not (confirmedByInspector closedName)) &&
+                        traceIfFalse "Cannot add any more funds if totalCost was previously met" (totalDeposited < totalCost) &&
+                        traceIfFalse "Deposit would pass project's totalCost" (nextTotalDeposited <= totalCost) &&
                         traceIfFalse "This is a deposit. totalDeposited to script must go up!" isDeposit &&
                         traceIfFalse "totalDeposited increase must match lastBalance increase" 
-                                                    (((totalDeposited outDatum) - (totalDeposited dat)) == ((lastBalance outDatum) - (lastBalance dat))) &&
+                                                    ((nextTotalDeposited - totalDeposited) == (nextLastBalance - lastBalance)) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        previousContractorAction == nextContractorAction && 
-                                                        (totalWithdrawnContractor dat) == (totalWithdrawnContractor outDatum) && 
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
+                                                        lastContractorAction == nextContractorAction && 
+                                                        totalWithdrawnContractor == nextTotalWithdrawnContractor && 
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner
                                                         )
 
                     Homeowner (HomeownerWithdrawFunds) ->
-                        traceIfTrue "Homeowner cannot withdraw funds if project is successfully complete" (previousContractorAction == WithdrawFinalPayment) &&
-                        traceIfFalse "Homeowner cannot withdraw more than what they're allowed" (homeownerWithrawalAmount <= allowedHomewownerWithdrawal previousContractorAction) &&
-                        traceIfFalse "Any funds spent must go solely to Homeowner" (totalAdaSpentFromContract == homeownerWithrawalAmount) &&
-                        traceIfFalse "Homeowner can only withdraw funds if project is ClosedIncomplete" (confirmedByInspector (closedName param)) &&
+                        traceIfFalse "Homeowner cannot withdraw funds if project is successfully complete" (lastContractorAction /= WithdrawFinalPayment) &&
+                        traceIfFalse "Homeowner cannot withdraw more than what they're allowed" (totalAdaSpentFromContract <= allowedHomewownerWithdrawal) &&
+                        traceIfFalse "Homeowner can only withdraw funds if project is ClosedIncomplete" (confirmedByInspector closedName) &&
                         traceIfFalse "totalWithdrawnHomeowner increase must match lastBalance decrease" 
-                                                    (((totalWithdrawnHomeowner outDatum) - (totalWithdrawnHomeowner dat)) == ((lastBalance dat) - (lastBalance outDatum))) &&
-                        traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
+                                                    ((nextTotalWithdrawnHomeowner - totalWithdrawnHomeowner) == (lastBalance - nextLastBalance)) &&
+                        traceIfFalse "This is a withdrawal. amountOfAdaToScript must go down!" isWithdrawal &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                        (previousContractorAction == nextContractorAction) && 
-                                        (totalWithdrawnContractor dat) == (totalWithdrawnContractor outDatum) && 
-                                        (totalDeposited dat) == (totalDeposited outDatum)
+                                        (lastContractorAction == nextContractorAction) && 
+                                        totalWithdrawnContractor == nextTotalWithdrawnContractor && 
+                                        totalDeposited == nextTotalDeposited
                                         )
+
             
             Contractor (_) ->
                 traceIfFalse "Must be signed by contractor" signedByContractor &&
-                traceIfFalse "No Homeowner withdrawal allowed at this step" (Ada.isZero homeownerWithrawalAmount) &&
+                traceIfFalse "Funds can only go to Contractor and Milestones address at this step" (valueOnlyToStakeholderAndScript contractor) && 
                 traceIfFalse "totalWithdrawnContractor increase must match lastBalance decrease" 
-                        (((totalWithdrawnContractor outDatum) - (totalWithdrawnContractor dat)) == ((lastBalance dat) - (lastBalance outDatum))) &&
+                        ((nextTotalWithdrawnContractor - totalWithdrawnContractor) == (lastBalance - nextLastBalance)) &&
 
                 case redeem of
+                    Contractor (NotStarted) ->
+                        traceError "No redemption possible of project is NotStarted"
+
                     Contractor (StartProject) ->
-                        traceIfFalse "No withdrawal allowed at this step" (Ada.isZero contractorPayoutAmount) &&
+                        traceIfFalse "Contractor can only StartProject if previous action was NotStarted" (lastContractorAction == NotStarted) &&
+                        traceIfFalse "Contractor can only StartProject if confirmedByInspector" (confirmedByInspector permitName) &&
+                        traceIfFalse "lastBalance must be exactly the 2ADA minUTXO to start a new project" (lastBalance == 2_000_000) &&
+                        traceIfFalse "totalDeposited must be zero to start a new project" (totalDeposited == 0) &&
+                        traceIfFalse "totalWithdrawnContractor must be zero to start a new project" (totalWithdrawnContractor == 0) &&
+                        traceIfFalse "totalWithdrawnHomeowner must be zero to start a new project" (totalWithdrawnHomeowner == 0) &&
                         traceIfFalse "Contract cannot spend any funds at this step" (Ada.isZero totalAdaSpentFromContract) &&
-                        traceIfFalse "TotalDeposited must be zero to start a new project" (totalDeposited dat == 0) &&
-                        traceIfFalse "lastBalance must be zero to start a new project" (lastBalance dat == 0) &&
-                        traceIfFalse "totalWithdrawnContractor must be zero to start a new project" (totalWithdrawnContractor dat == 0) &&
-                        traceIfFalse "totalWithdrawnHomeowner must be zero to start a new project" (totalWithdrawnHomeowner dat == 0) &&
                         traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem StartProject) &&
-                        traceIfFalse "Contractor can only StartProject if confirmedByInspector" (confirmedByInspector (permitName param)) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        (totalDeposited dat) == (totalDeposited outDatum) &&
-                                                        (totalWithdrawnContractor dat) == (totalWithdrawnContractor outDatum) && 
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum) &&
-                                                        (lastBalance dat) == (lastBalance outDatum)   
+                                                        totalDeposited == nextTotalDeposited &&
+                                                        totalWithdrawnContractor == nextTotalWithdrawnContractor && 
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner &&
+                                                        lastBalance == nextLastBalance   
                                                         )
 
-                            
                     Contractor (WithdrawPermitPayment) ->
-                        traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                        traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawPermitPayment) &&
-                        traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
+                        traceIfFalse "Contractor can only WithdrawPermitPayment if previous action was StartProject" (lastContractorAction == StartProject) &&
+                        traceIfFalse "Contractor can only WithdrawPermitPayment if confirmedByInspector" (confirmedByInspector permitName) &&
+                        traceIfFalse "This is a withdrawal. amountOfAdaToScript must go down!" isWithdrawal &&
                         traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawPermitPayment) && 
-                        traceIfFalse "Contractor can only WithdrawPermitPayment if confirmedByInspector" (confirmedByInspector (permitName param)) &&
-                        traceIfFalse "Contractor can only WithdrawPermitPayment if previous action was StartProject" (previousContractorAction == StartProject) &&
+                        traceIfFalse "Contractor payout must match schedule for this milestone" (totalAdaSpentFromContract == (scheduledPayout WithdrawPermitPayment)) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        (totalDeposited dat) == (totalDeposited outDatum) &&
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
-                                                        )
-
+                                                        totalDeposited == nextTotalDeposited &&
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner
+                                                        ) 
 
                     Contractor (WithdrawRoughPayment) ->
-                        traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                        traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawRoughPayment) &&
-                        traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
+                        traceIfFalse "Contractor can only WithdrawRoughPayment if previous action was WithdrawPermitPayment" (lastContractorAction == WithdrawPermitPayment) &&
+                        traceIfFalse "Contractor can only WithdrawRoughPayment if confirmedByInspector" (confirmedByInspector roughName) &&
+                        traceIfFalse "This is a withdrawal. amountOfAdaToScript must go down!" isWithdrawal &&
+                        traceIfFalse "Contractor payout must match schedule for this milestone" (totalAdaSpentFromContract == scheduledPayout WithdrawRoughPayment) &&
                         traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawRoughPayment) && 
-                        traceIfFalse "Contractor can only WithdrawRoughPayment if confirmedByInspector" (confirmedByInspector (roughName param)) &&
-                        traceIfFalse "Contractor can only WithdrawRoughPayment if previous action was WithdrawPermitPayment" (previousContractorAction == WithdrawPermitPayment) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        (totalDeposited dat) == (totalDeposited outDatum) &&
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
-                                                        )    
+                                                        totalDeposited == nextTotalDeposited &&
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner
+                                                        )
 
                     Contractor (WithdrawDrywallPayment) ->
-                        traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                        traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawDrywallPayment) &&
-                        traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
+                        traceIfFalse "Contractor can only WithdrawDrywallPayment if previous action was WithdrawRoughPayment" (lastContractorAction == WithdrawRoughPayment) &&
+                        traceIfFalse "Contractor can only WithdrawDrywallPayment if confirmedByInspector" (confirmedByInspector drywallName) &&
+                        traceIfFalse "This is a withdrawal. amountOfAdaToScript must go down!" isWithdrawal &&
+                        traceIfFalse "Contractor payout must match schedule for this milestone" (totalAdaSpentFromContract == scheduledPayout WithdrawDrywallPayment) &&
                         traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawDrywallPayment) && 
-                        traceIfFalse "Contractor can only WithdrawDrywallPayment if confirmedByInspector" (confirmedByInspector (drywallName param)) &&
-                        traceIfFalse "Contractor can only WithdrawDrywallPayment if previous action was WithdrawRoughPayment" (previousContractorAction == WithdrawRoughPayment) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        (totalDeposited dat) == (totalDeposited outDatum) &&
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
+                                                        totalDeposited == nextTotalDeposited &&
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner
                                                         )
 
                     Contractor (WithdrawFinalPayment) -> 
-                        traceIfFalse "This is a withdrawal. adaToScript must go down!" isWithdrawal &&
-                        traceIfFalse "Contractor payout must match schedule for this milestone" (contractorPayoutAmount == scheduledPayout WithdrawFinalPayment) &&
-                        traceIfFalse "Any funds spent must go solely to Contractor" (totalAdaSpentFromContract == contractorPayoutAmount) &&
+                        traceIfFalse "Contractor can only WithdrawFinalPayment if previous action was WithdrawDrywallPayment" (lastContractorAction == WithdrawDrywallPayment) &&
+                        traceIfFalse "Contractor can only WithdrawFinalPayment if confirmedByInspector" (confirmedByInspector finalName) &&
+                        traceIfFalse "This is a withdrawal. amountOfAdaToScript must go down!" isWithdrawal &&
+                        traceIfFalse "Contractor payout must match schedule for this milestone" (totalAdaSpentFromContract == scheduledPayout WithdrawFinalPayment) &&
                         traceIfFalse "OutputDatum contractor action must match redeemer action" (datumActionMatchesRedeem WithdrawFinalPayment) && 
-                        traceIfFalse "Contractor can only WithdrawFinalPayment if confirmedByInspector" (confirmedByInspector (finalName param)) &&
-                        traceIfFalse "Contractor can only WithdrawFinalPayment if previous action was WithdrawDrywallPayment" (previousContractorAction == WithdrawDrywallPayment) &&
                         traceIfFalse "Cannot modify any other part of Datum" (
-                                                        (totalDeposited dat) == (totalDeposited outDatum) &&
-                                                        (totalWithdrawnHomeowner dat) == (totalWithdrawnHomeowner outDatum)
+                                                        totalDeposited == nextTotalDeposited &&
+                                                        totalWithdrawnHomeowner == nextTotalWithdrawnHomeowner
                                                         )
 
 milestoneCompile :: MilestoneParam -> V2UtilsTypeScripts.TypedValidator Milestone 

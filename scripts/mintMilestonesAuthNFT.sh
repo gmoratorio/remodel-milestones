@@ -11,6 +11,8 @@ source helpers.sh
 
 getAndSetTestnetMagic
 
+section "This script will mint the AuthNFT which will be used to validate all transactions in the Milestones script"
+
 section "First we need the tokenName for the Milestones AuthNFT (must match the tokenName entered in DeployNFT.hs)"
 read -p "Enter tokenName for AuthNFT: " TOKEN_NAME
 
@@ -81,5 +83,13 @@ $CARDANO_CLI transaction submit --tx-file $PATH_TO_TRANSACTIONS/tx.signed --test
 POLICY_ID_FILE=$PATH_TO_MILESTONE_DEPLOY/policyID
 echo $POLICY_ID > $POLICY_ID_FILE
 section "Your AuthNFT has been created"
+echo "The policyID for this AuthNFT is: " $POLICY_ID
 echo "The policyID for this AuthNFT is located at /Milestones/Deploy/policyID"
 echo "Use this policyID for the Milestones deployment in Milestones.DeployOnChain.hs"
+echo "Additionally, this policyID will automatically be used by all other shell scripts interacting with this validator"
+echo ""
+
+AUTH_TOKEN_NAME_FILE=$PATH_TO_MILESTONE_DEPLOY/authTokenName
+echo $TOKEN_NAME > $AUTH_TOKEN_NAME_FILE
+echo "The TokenName for the AuthNFT is located at /Milestones/Deploy/authTokenName"
+echo "This authTokenName will automatically be used by all other shell scripts interacting with this validator"

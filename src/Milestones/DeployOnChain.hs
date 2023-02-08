@@ -1,3 +1,5 @@
+{-# LANGUAGE NumericUnderscores #-}
+
 module Milestones.DeployOnChain where
 
 import qualified Data.ByteString.Char8              as B
@@ -13,6 +15,7 @@ import qualified PlutusTx.Prelude                   as PlutusPrelude
 import           Cardano.Api
 import           Cardano.Api.Shelley (PlutusScript (..))
 import qualified PlutusTx
+import qualified Plutus.V1.Ledger.Scripts           as ScriptsLedger
 
 import qualified Milestones.OnChain as OnChain
 
@@ -24,36 +27,41 @@ contractor = "ENTER_CONTRACTOR_PKH_HERE"
 homeowner :: B.ByteString
 homeowner = "ENTER_HOMEOWNER_PKH_HERE"
 
--- must be in lovelaces
-totalCost :: Integer
-totalCost = 10000000000 -- ENTER YOUR TOTAL COST HERE. 10k ADA default here
+-- policyID for reference InspectorNFTs, created by inspector using Inspector.Deploy.hs
+-- should be at Inspector/Deploy/policyID after running any inspector script that calls mintInspectorNFT.sh
 
--- payments below MUST add up to totalCost or validator will fail
--- must be in lovelaces
-deposit :: Integer
-deposit = 2500000000 -- ENTER AMOUNT HERE
-
--- must be in lovelaces
-secondPayment :: Integer
-secondPayment = 2500000000 -- ENTER AMOUNT HERE
-
--- must be in lovelaces
-thirdPayment :: Integer
-thirdPayment = 2500000000 -- ENTER AMOUNT HERE
-
--- must be in lovelaces
-finalPayment :: Integer
-finalPayment = 2500000000 -- ENTER AMOUNT HERE
+inspectionPolicyId :: B.ByteString
+inspectionPolicyId = "ENTER_POLICY_ID_HERE"
 
 -- policyID for this project, created by contractor using Milestones.DeployNFT.hs
 -- should be at Milestones/Deploy/policyID after running mintMilestonesNFT.sh script
 projectPolicyId :: B.ByteString
-projectPolicyId = "MILESTONE_PROJECT_POLICY_ID_HERE"
+projectPolicyId = "ENTER_POLICY_ID_HERE"
 
--- policyID for reference InspectorNFTs, created by inspector using Inspector.Deploy.hs
--- should be at Inspector/Deploy/policyID after running any inspector script that calls mintInspectorNFT.sh
-inspectionPolicyId :: B.ByteString
-inspectionPolicyId = "INSPECTOR_REFERENCE_NFT_POLICY_ID_HERE"
+
+-- Values below can be changed, but their corresponding values in scripts and datums will need to be updated as well
+-- To use provided walkthrough, leave these values below as-is
+-- must be in lovelaces
+totalCost :: Integer
+totalCost = 2_000_000_000 -- ENTER YOUR TOTAL COST HERE. 2k ADA default here
+
+-- payments below MUST add up to totalCost or validator will fail
+-- must be in lovelaces
+deposit :: Integer
+deposit = 500_000_000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+secondPayment :: Integer
+secondPayment = 500_000_000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+thirdPayment :: Integer
+thirdPayment = 500_000_000 -- ENTER AMOUNT HERE
+
+-- must be in lovelaces
+finalPayment :: Integer
+finalPayment = 500_000_000 -- ENTER AMOUNT HERE
+
 
 -- these match the InspectorNFT Names in Inspector/Deploy.hs - DO NOT CHANGE
 permitName :: B.ByteString
@@ -108,14 +116,15 @@ convertToPubKeyHash b = Ledger.PaymentPubKeyHash (Ledger.PubKeyHash $ decodeHex 
 
 -- Datum must be initialized to StartProject state
 lastContractorAction :: OnChain.RedeemContractor
-lastContractorAction = OnChain.StartProject
+lastContractorAction = OnChain.NotStarted
 
--- all of these are enforced by OnChain to start at 0
+-- this is enforced by OnChain to start at 2ADA for MinUTXO that comes with the AuthNFT
+lastBalance :: Integer
+lastBalance = 2_000_000
+
+-- these are enforced by OnChain to start at 0
 totalDeposited :: Integer
 totalDeposited = 0
-
-lastBalance :: Integer
-lastBalance = 0
 
 totalWithdrawnContractor :: Integer
 totalWithdrawnContractor = 0
@@ -136,6 +145,13 @@ main :: IO()
 main = do
     writeDatumUnit
     writeMilestoneDatum
+    writeRedeemerHomeownerAddFunds
+    writeRedeemerHomeownerWithdrawFunds
+    writeRedeemerContractorStartProject
+    writeRedeemerContractorPermitPayment
+    writeRedeemerContractorRoughPayment
+    writeRedeemerContractorDrywallPayment
+    writeRedeemerContractorFinalPayment
     _ <- writeParameterized
 
 
@@ -161,7 +177,55 @@ writeDatumUnit = writeJSON "src/Milestones/Deploy/unit.json" ()
 writeMilestoneDatum :: IO ()
 writeMilestoneDatum = 
     let d = PlutusTx.toBuiltinData milestoneDatum
-    in writeJSON "src/Milestones/Deploy/parameterized-initial-datum.json" d
+    in writeJSON "src/Milestones/Deploy/0-parameterized-initial-datum.json" d
+
+writeRedeemerHomeownerAddFunds :: IO ()
+writeRedeemerHomeownerAddFunds = 
+    let ho = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Homeowner (OnChain.HomeownerAddFunds)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-homeowner-add-funds.json" ho
+
+writeRedeemerHomeownerWithdrawFunds :: IO ()
+writeRedeemerHomeownerWithdrawFunds = 
+    let ho = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Homeowner (OnChain.HomeownerWithdrawFunds)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-homeowner-withdraw-funds.json" ho
+
+writeRedeemerContractorNotStarted :: IO ()
+writeRedeemerContractorNotStarted = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.NotStarted)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-not-started.json" ctr
+
+writeRedeemerContractorStartProject :: IO ()
+writeRedeemerContractorStartProject = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.StartProject)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-start-project.json" ctr
+
+writeRedeemerContractorPermitPayment :: IO ()
+writeRedeemerContractorPermitPayment = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.WithdrawPermitPayment)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-permit-payment.json" ctr
+
+writeRedeemerContractorRoughPayment :: IO ()
+writeRedeemerContractorRoughPayment = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.WithdrawRoughPayment)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-rough-payment.json" ctr
+
+writeRedeemerContractorDrywallPayment :: IO ()
+writeRedeemerContractorDrywallPayment = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.WithdrawDrywallPayment)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-drywall-payment.json" ctr
+
+writeRedeemerContractorFinalPayment :: IO ()
+writeRedeemerContractorFinalPayment = 
+    let ctr = ScriptsLedger.Redeemer $ PlutusTx.toBuiltinData $ OnChain.Contractor (OnChain.WithdrawFinalPayment)
+    in
+        writeJSON "src/Milestones/Deploy/redeemer-contractor-final-payment.json" ctr
 
 writeParameterized :: IO (Either (FileError ()) ())
 writeParameterized = writeValidator "src/Milestones/Deploy/Milestones.plutus" $ OnChain.validator parameters

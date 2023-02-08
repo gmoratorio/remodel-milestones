@@ -56,6 +56,14 @@ library
         Milestones.Mint
         Milestones.DeployNFT
         Milestones.DeployOnChain
+        Milestones.DeployAdditional_2_HomeownerDeposit
+        Milestones.DeployAdditional_3_ContractorFirstWithdraw
+        Milestones.DeployAdditional_4_HomeownerDepositBalance
+        Milestones.DeployAdditional_5_ContractorWithdrawDrywall
+        Milestones.DeployAdditional_6_ContractorWithdrawRough
+        Milestones.DeployAdditional_7_ContractorWithdrawDrywallAgain
+        Milestones.DeployAdditional_8a_ContractorWithdrawFinal
+        Milestones.DeployAdditional_8b_HomeownerWithdrawProjectFailed
 
     hs-source-dirs:  src
 

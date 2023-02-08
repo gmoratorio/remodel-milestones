@@ -23,15 +23,15 @@ import qualified Milestones.Mint as Mint
 contractor :: B.ByteString
 contractor = "ENTER_CONTRACTOR_PKH_HERE"
 
--- ByteString (string) of the token name for the Milestone's thread NFT
+-- ByteString (string) of the token name for the Milestone's AuthNFT
 tokenName :: B.ByteString
-tokenName = "ENTER_TOKEN_NAME_HERE"
+tokenName = "ENTER_PROJECT_TOKEN_NAME_HERE"
 
 -- available utxo (with hash) of the minter wallet above
 -- this utxo will be used to make the script unique,
--- and will be consumed by mintMilestonesNFT.sh to create a thread NFT
+-- and will be consumed by mintMilestonesNFT.sh to create an AuthNFT
 utxo :: String
-utxo = "ENTER_UTXO_HERE"
+utxo = "ENTER_UTXO#INDEX_HERE"
 
 parameters :: Mint.MilestoneMintParam
 parameters = Mint.MilestoneMintParam 

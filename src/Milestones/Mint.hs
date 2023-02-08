@@ -9,7 +9,6 @@ import qualified PlutusTx
 import qualified Plutus.V2.Ledger.Contexts           as LedgerContextsV2
 import qualified Plutus.V1.Ledger.Value              as LedgerValueV1
 import qualified Plutus.Script.Utils.V2.Scripts      as UtilsScriptsV2
-import qualified Plutus.V1.Ledger.Interval           as LedgerIntervalV1
 
 
 data MilestoneMintParam = MilestoneMintParam 
